@@ -15,11 +15,6 @@ export const registerUser = async (req: Request, res: Response, next: NextFuncti
     try {
         const { username, email, password } = req.body;
 
-        const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-        if (existingUser) {
-            return next(new AppError('User with this email or username already exists', 400));
-        }
-
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
@@ -44,6 +39,9 @@ export const registerUser = async (req: Request, res: Response, next: NextFuncti
             },
         });
     } catch (error: any) {
+        if (error.code === 11000) {
+            return next(new AppError('User with this email or username already exists', 400));
+        }
         next(error);
     }
 };

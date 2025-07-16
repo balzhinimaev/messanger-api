@@ -8,6 +8,7 @@ interface IUser extends Document {
     email: string;
     passwordHash: string;
     avatarUrl?: string; // Опциональное поле для аватара
+    contacts?: Types.ObjectId[]; // Список контактов (ID других пользователей)
     createdAt: Date;
     updatedAt: Date;
 }
@@ -40,11 +41,19 @@ const userSchema = new Schema<IUser>(
             type: String,
             default: '', // Пустая строка по умолчанию, если нет аватара
         },
+        // Массив контактов (друзей) – ссылки на другие документы User
+        contacts: [{
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+        }],
     },
     {
         timestamps: true, // Автоматически добавляет поля createdAt и updatedAt
     }
 );
+
+// Индекс для ускорения поиска по username и email
+userSchema.index({ username: 'text', email: 'text' });
 
 // Важно: Если вы используете Mongoose v6+, то get, set и методы больше не являются частью схемы по умолчанию.
 // Если вам нужны методы (например, для проверки пароля), их нужно определить через `userSchema.methods`.

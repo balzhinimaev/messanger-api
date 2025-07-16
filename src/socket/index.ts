@@ -12,6 +12,11 @@ export const initSocketServer = (io: Server) => {
     // Используем наше middleware для авторизации
     io.use(socketAuthMiddleware);
 
+    // Логируем ошибки подключения, например, отвергнутые middleware
+    io.on('connection_error', (err) => {
+        console.error('❌ Connection error:', err.message, err.data);
+    });
+
     io.on('connection', async (socket: AuthenticatedSocket) => {
         // Мы можем быть уверены, что user существует благодаря middleware
         const user = socket.user!; 
@@ -53,22 +58,35 @@ export const initSocketServer = (io: Server) => {
         }
 
         const sendMessageHandler = async (socket: AuthenticatedSocket, data: { chatId: string; content: string }) => {
+            console.log('📨 [send_message] Data received:', data);
             const { chatId, content } = data;
             const senderId = socket.user!._id;
+            console.log('📨 [send_message] Sender:', senderId.toString());
 
             const chat = await Chat.findOne({ _id: chatId, participants: senderId });
             if (!chat) {
+                console.warn('⚠️ [send_message] Chat not found or sender is not a participant');
                 socket.emit('error', { message: "You are not a participant of this chat." });
                 return;
             }
+
+            console.log('📨 [send_message] Chat found, creating message');
+
             try {
-                const newMessage = new Message({ sender: senderId, chat: chatId, content: content });
+                const newMessage = new Message({ sender: senderId, chat: chatId, content });
                 const savedMessage = await newMessage.save();
+                console.log('📨 [send_message] Message saved with id:', savedMessage._id.toString());
+
                 await Chat.findByIdAndUpdate(chatId, { lastMessage: savedMessage._id });
+                console.log('📨 [send_message] Chat lastMessage updated');
+
                 const populatedMessage = await Message.findById(savedMessage._id).populate('sender', 'username avatarUrl');
+                console.log('📨 [send_message] Populated message ready, emitting to room', chatId);
+
                 io.to(chatId).emit('message_received', populatedMessage);
-                console.log(`Message sent to room ${chatId}`);
+                console.log(`📨 [send_message] Message emitted to room ${chatId}`);
             } catch (error) {
+                console.error('❌ [send_message] Failed to send message:', error);
                 socket.emit('error', { message: "Failed to send message." });
             }
         };
@@ -86,11 +104,19 @@ export const initSocketServer = (io: Server) => {
 
         // Новый обработчик: Сообщение доставлено
         const messageDeliveredHandler = async (socket: AuthenticatedSocket, data: { messageId: string, chatId: string }) => {
+            console.log('✅ [message_delivered] Data received:', data);
             try {
                 const message = await Message.findById(data.messageId);
-                if (message && message.status === 'sent') {
+                if (!message) {
+                    console.warn('⚠️ [message_delivered] Message not found');
+                    return;
+                }
+                console.log('✅ [message_delivered] Current status:', message.status);
+
+                if (message.status === 'sent') {
                     message.status = 'delivered';
                     await message.save();
+                    console.log('✅ [message_delivered] Status updated to delivered');
                     
                     // Оповещаем отправителя, что его сообщение доставлено
                     io.to(message.sender.toString()).emit('message_status_updated', {
@@ -98,19 +124,24 @@ export const initSocketServer = (io: Server) => {
                         chatId: data.chatId,
                         status: 'delivered'
                     });
+                    console.log('✅ [message_delivered] Emitted message_status_updated to sender');
                 }
             } catch (error) {
-                console.error('Failed to update message status to delivered:', error);
+                console.error('❌ [message_delivered] Failed to update status:', error);
             }
         };
 
         // Новый обработчик: Сообщения в чате прочитаны
         const messagesReadHandler = async (socket: AuthenticatedSocket, data: { chatId: string }) => {
+            console.log('👁 [messages_read] Data received:', data);
             try {
                 const userId = socket.user!._id;
-                // Мы уже обновили БД через REST API, теперь просто оповещаем собеседника
                 const chat = await Chat.findById(data.chatId).populate('participants');
-                if (!chat) return;
+                if (!chat) {
+                    console.warn('⚠️ [messages_read] Chat not found');
+                    return;
+                }
+                console.log('👁 [messages_read] Chat found, participants:', chat.participants.map(p => p._id.toString()));
 
                 const partner = chat.participants.find(p => p._id.toString() !== userId.toString());
                 if (partner) {
@@ -118,9 +149,12 @@ export const initSocketServer = (io: Server) => {
                         chatId: data.chatId,
                         readerId: userId
                     });
+                    console.log('👁 [messages_read] Emitted messages_marked_as_read to partner', partner._id.toString());
+                } else {
+                    console.log('👁 [messages_read] No partner found (possibly self-chat)');
                 }
             } catch (error) {
-                console.error('Failed to emit messages_read event:', error);
+                console.error('❌ [messages_read] Failed to emit event:', error);
             }
         };
 
@@ -132,15 +166,19 @@ export const initSocketServer = (io: Server) => {
         socket.on('message_delivered', validateSocketData(messageStatusSocketSchema, messageDeliveredHandler));
         socket.on('messages_read', validateSocketData(typingSocketSchema, messagesReadHandler)); // Используем ту же схему, что и для typing
 
-        // 4. Обработка отключения
-        socket.on('disconnect', () => {
-            console.log(`❌ User disconnected: ${socket.id}`);
+        // 4. Обработка отключения с выводом причины
+        socket.on('disconnect', (reason) => {
+            console.log(`❌ User disconnected: ${socket.id}. Reason: ${reason}`);
             removeUser(user._id.toString(), socket.id);
             // Оповещаем контакты, что пользователь вышел из сети
             contactIds.forEach(contactId => {
                 io.to(contactId).emit('user_offline', { userId: user._id });
             });
-            // Здесь можно реализовать логику статуса "оффлайн"
+        });
+
+        // 5. Логирование ошибок сокета
+        socket.on('error', (err) => {
+            console.error(`⚠️ Socket error on ${socket.id}:`, err);
         });
     });
 }; 

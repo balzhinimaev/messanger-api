@@ -6,16 +6,7 @@ const isMongoId = (id: string) => mongoose.Types.ObjectId.isValid(id);
 
 export const createPrivateChatSchema = z.object({
     body: z.object({
-        partnerId: z.string().refine(isMongoId, { message: 'Invalid partner ID' }),
-    })
-});
-
-export const sendMessageSchema = z.object({
-    body: z.object({
-        content: z.string().min(1, 'Message content cannot be empty'),
-    }),
-    params: z.object({
-        id: z.string().refine(isMongoId, { message: 'Invalid chat ID' }),
+        participantId: z.string().refine(isMongoId, { message: 'Invalid participant ID' }),
     })
 });
 

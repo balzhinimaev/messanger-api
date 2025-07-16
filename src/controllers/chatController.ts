@@ -7,7 +7,7 @@ import { AppError } from '../middleware/errorHandler';
 // Эндпоинт: POST /chats (создание личного чата)
 export const createPrivateChat = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { partnerId } = req.body; // ID второго участника
+        const { participantId } = req.body; // ID второго участника
         const myId = req.user?._id;
 
         if (!myId) {
@@ -17,7 +17,7 @@ export const createPrivateChat = async (req: Request, res: Response, next: NextF
         // Ищем существующий личный чат между этими двумя пользователями
         let chat = await Chat.findOne({
             isGroupChat: false,
-            participants: { $all: [myId, partnerId], $size: 2 }, // Оба участника, и только они
+            participants: { $all: [myId, participantId], $size: 2 }, // Оба участника, и только они
         }).populate('participants', '-passwordHash'); // Заполняем данными участников
 
         // Если чат уже существует, возвращаем его
@@ -28,7 +28,7 @@ export const createPrivateChat = async (req: Request, res: Response, next: NextF
         // Если чата нет, создаем новый
         const newChat = new Chat({
             isGroupChat: false,
-            participants: [myId, partnerId],
+            participants: [myId, participantId],
         });
 
         const savedChat = await newChat.save();
@@ -54,35 +54,6 @@ export const getUserChats = async (req: Request, res: Response, next: NextFuncti
     }
 };
 
-
-// Эндпоинт: POST /chats/{id}/messages (отправка сообщения)
-export const sendMessage = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { content } = req.body;
-        const chatId = req.params.id;
-        const senderId = req.user?._id;
-
-        // Создаем новое сообщение
-        const newMessage = new Message({
-            sender: senderId,
-            chat: chatId,
-            content: content,
-        });
-
-        const savedMessage = await newMessage.save();
-
-        // Обновляем поле lastMessage в документе чата
-        await Chat.findByIdAndUpdate(chatId, { lastMessage: savedMessage._id });
-
-        // Заполняем данные отправителя перед отправкой ответа
-        const populatedMessage = await Message.findById(savedMessage._id)
-                                              .populate('sender', 'username avatarUrl');
-
-        res.status(201).json(populatedMessage);
-    } catch (error) {
-        next(error);
-    }
-};
 
 // Эндпоинт: POST /chats/{id}/messages/read (отметить сообщения как прочитанные)
 export const markMessagesAsRead = async (req: Request, res: Response, next: NextFunction) => {

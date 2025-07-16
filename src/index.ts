@@ -7,6 +7,7 @@ import { Server } from 'socket.io'; // Импортируем Server из socket
 import mongoose from 'mongoose';
 import authRoutes from './routes/authRoutes';
 import chatRoutes from './routes/chatRoutes';
+import userRoutes from './routes/userRoutes';
 import { initSocketServer } from './socket';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -15,6 +16,7 @@ import { globalErrorHandler, AppError } from './middleware/errorHandler';
 const app = express();
 const server = http.createServer(app); // Создаем HTTP сервер на основе Express приложения
 const io = new Server(server, { // Инициализируем Socket.IO поверх HTTP сервера
+    path: '/socket.io/', // Явно указываем путь для socket.io
     cors: {
         origin: "http://localhost:3000", // !!! Укажите URL вашего фронтенд-приложения
         methods: ["GET", "POST"]
@@ -56,10 +58,10 @@ app.get('/api', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/users', userRoutes);
 
-// Handle unhandled routes
-// Express 5 требует именованный wildcard-параметр — используем "splat".
-app.all('/*splat', (req, res, next) => {
+// Handle unhandled routes - Исключаем путь сокетов
+app.all(/^\/(?!socket\.io).*$/, (req, res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
