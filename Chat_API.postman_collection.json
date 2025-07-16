@@ -1,0 +1,272 @@
+{
+	"info": {
+		"_postman_id": "c1f7f1f0-5f5d-4f8a-9c3f-9e6e3e7f9e8a",
+		"name": "Chat API",
+		"description": "A collection for the Chat API, covering authentication, chat management, and messaging.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"description": "Authentication related endpoints for user registration and login.",
+			"item": [
+				{
+					"name": "Register User",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"testuser\",\n    \"email\": \"[email protected]\",\n    \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Registers a new user and returns a JWT token upon success."
+					},
+					"response": []
+				},
+				{
+					"name": "Login User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"",
+									"if (response.token) {",
+									"    pm.environment.set(\"authToken\", response.token);",
+									"    console.log(\"Auth token has been saved to environment variables.\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"[email protected]\",\n    \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Logs in a user and returns a JWT token. The token is automatically saved to the `authToken` environment variable via a test script."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"me"
+							]
+						},
+						"description": "Gets the details of the currently authenticated user. Inherits authorization from the collection settings."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Chats",
+			"description": "Endpoints for managing chats and messages. All requests here require authentication.",
+			"item": [
+				{
+					"name": "Create Private Chat",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"participantId\": \"<ANOTHER_USER_ID>\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/chats",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"chats"
+							]
+						},
+						"description": "Creates a new private chat with another user. You need to get the ID of another registered user to test this."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Chats",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/chats",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"chats"
+							]
+						},
+						"description": "Retrieves a list of all chats the authenticated user is a part of."
+					},
+					"response": []
+				},
+				{
+					"name": "Send Message",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"content\": \"Hello from Postman!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/chats/:chatId/messages",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"chats",
+								":chatId",
+								"messages"
+							],
+							"variable": [
+								{
+									"key": "chatId",
+									"value": "<CHAT_ID>"
+								}
+							]
+						},
+						"description": "Sends a message to a specific chat. Replace `:chatId` with an actual chat ID in the path variables."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Chat Messages",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/chats/:chatId/messages?limit=50&offset=0",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"chats",
+								":chatId",
+								"messages"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							],
+							"variable": [
+								{
+									"key": "chatId",
+									"value": "<CHAT_ID>"
+								}
+							]
+						},
+						"description": "Retrieves messages from a specific chat with pagination. Replace `:chatId` with an actual chat ID in the path variables."
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Messages as Read",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/chats/:chatId/messages/read",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"chats",
+								":chatId",
+								"messages",
+								"read"
+							],
+							"variable": [
+								{
+									"key": "chatId",
+									"value": "<CHAT_ID>"
+								}
+							]
+						},
+						"description": "Marks all messages in a chat as read for the authenticated user. Replace `:chatId` with an actual chat ID in the path variables."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{authToken}}",
+				"type": "string"
+			}
+		]
+	}
+} 
